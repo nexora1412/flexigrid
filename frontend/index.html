@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FlexiGrid — Community Demand Response for Bharat</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#070b12; --panel:#0f1726; --panel2:#0a101b; --panel-hover:#141f33; --line:#1b283d;
+    --green:#10b981; --green-dim:#065f46; --green-glow:rgba(16,185,129,0.25);
+    --amber:#f59e0b; --amber-dim:#78350f; --amber-glow:rgba(245,158,11,0.25);
+    --red:#ef4444; --red-dim:#7f1d1d; --cyan:#06b6d4; --violet:#8b5cf6;
+    --text:#f1f5f9; --muted:#94a3b8; --border-radius:12px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,-apple-system,sans-serif;padding:12px 16px 36px;line-height:1.4}
+  
+  /* Top Bar */
+  .top-strip{display:flex;justify-content:space-between;align-items:center;background:#0d1522;border:1px solid var(--line);border-radius:10px;padding:6px 14px;margin-bottom:10px;font-size:12px}
+  .hackathon-badge{background:linear-gradient(90deg,#065f46,#1e3a8a);color:#a7f3d0;padding:3px 10px;border-radius:999px;font-weight:700;letter-spacing:.4px;display:flex;align-items:center;gap:6px}
+  
+  .header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;
+    background:linear-gradient(90deg,#0c1d18,#0d1522);border:1px solid var(--line);border-radius:var(--border-radius);padding:14px 18px;margin-bottom:12px}
+  .brand{display:flex;align-items:center;gap:12px}
+  .bolt{font-size:28px;filter:drop-shadow(0 0 10px #10b981)}
+  .sub{color:var(--muted);font-size:12px;margin-top:2px}
+  .hgroup{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  
+  select,button{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:7px 11px;font-size:12px;cursor:pointer;transition:all .15s}
+  select:hover,button:hover{border-color:var(--green);background:var(--panel-hover)}
+  .btn-accent{background:linear-gradient(135deg,#065f46,#047857);border-color:#10b981;font-weight:600}
+  .btn-accent:hover{box-shadow:0 0 12px var(--green-glow)}
+  .btn-storm{background:linear-gradient(135deg,#7f1d1d,#991b1b);border-color:#ef4444;font-weight:600}
+  .btn-storm:hover{box-shadow:0 0 12px rgba(239,68,68,0.4)}
+  .btn-supabase{background:linear-gradient(135deg,#134e4a,#0f766e);border-color:#14b8a6;font-weight:600}
+  .clock{font-variant-numeric:tabular-nums;font-size:13px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 12px;font-weight:600}
+  
+  .badge-live{font-size:11px;padding:4px 9px;border-radius:999px;font-weight:700;letter-spacing:.4px;display:inline-flex;align-items:center;gap:4px}
+  .live{background:#064e3b;color:#a7f3d0;border:1px solid var(--green-dim)}
+  .offline{background:#451a03;color:#fde68a;border:1px solid #78350f}
+  
+  /* Role & Persona Switcher Bar */
+  .role-bar{display:flex;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:6px;margin-bottom:12px;overflow-x:auto}
+  .role-btn{background:transparent;border:1px solid transparent;color:var(--muted);padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px}
+  .role-btn.active{background:var(--panel);color:var(--text);border-color:var(--green);box-shadow:0 0 10px var(--green-glow)}
+  
+  /* Alerts */
+  .stormbar{display:none;background:linear-gradient(90deg,#7f1d1d,#451a03);border:1px solid #ef4444;color:#fef2f2;
+    padding:10px 16px;border-radius:10px;margin-bottom:12px;font-weight:600;animation:pulse 2s infinite}
+  .drbar{display:none;background:linear-gradient(90deg,#064e3b,#0f172a);border:1px solid var(--green);color:#ecfdf5;
+    padding:10px 16px;border-radius:10px;margin-bottom:12px;font-weight:600}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.85}}
+  
+  /* KPIs Grid */
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:12px}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--border-radius);padding:12px 14px}
+  .kpi .v{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+  .kpi .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-top:3px}
+  .kpi .d{font-size:10.5px;color:var(--muted);margin-top:2px}
+  
+  /* Layout Grid */
+  .grid2{display:grid;grid-template-columns:2.2fr 1fr;gap:12px}
+  @media(max-width:1080px){.grid2{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--border-radius);padding:14px;margin-bottom:12px}
+  .panel h3{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between}
+  .legend{display:flex;gap:14px;font-size:12px;color:var(--muted);flex-wrap:wrap;margin-top:8px}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px}
+  
+  .homes{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px;max-height:480px;overflow-y:auto;padding-right:4px}
+  .home{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-size:12px;transition:transform .1s}
+  .home:hover{transform:translateY(-1px);background:var(--panel-hover)}
+  .home .nm{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;justify-content:space-between;align-items:center}
+  .home .tag{font-size:10px;color:var(--muted)}
+  .chip{display:inline-block;font-size:10px;border-radius:6px;padding:2px 6px;margin:2px 2px 0 0;background:#1e293b;border:1px solid #334155;color:#94a3b8}
+  .state-run{border-left:3px solid var(--cyan)} .state-sur{border-left:3px solid var(--green)}
+  .state-imp{border-left:3px solid var(--amber)} .state-miss{border-left:3px solid var(--red)}
+  .mode{font-size:9.5px;padding:1px 6px;border-radius:999px;font-weight:700}
+  .m-auto{background:#064e3b;color:#a7f3d0} .m-sms{background:#451a03;color:#fde68a}
+  
+  /* Feed & Leaderboard */
+  .feed{max-height:360px;overflow-y:auto;font-size:12px}
+  .ev{padding:7px 9px;border-bottom:1px solid var(--line);display:flex;gap:8px}
+  .ev .t{color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;font-size:11px}
+  .ev.dr{border-left:3px solid var(--amber)} .ev.storm{border-left:3px solid var(--red)}
+  .ev.opt{border-left:3px solid var(--green)} .ev.sms{border-left:3px solid var(--violet)}
+  
+  table{width:100%;font-size:12px;border-collapse:collapse}
+  th{color:var(--muted);text-align:left;font-weight:600;font-size:11px;text-transform:uppercase;padding:5px 6px}
+  td{padding:6px;border-top:1px solid var(--line)}
+  
+  /* Battery Bar */
+  .socwrap{background:#0a101b;border:1px solid var(--line);border-radius:8px;height:18px;overflow:hidden;margin:8px 0}
+  .socfill{height:100%;background:linear-gradient(90deg,#059669,#10b981);transition:width .6s;border-radius:8px}
+  .binfo{display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
+  .bact{font-size:13px;font-weight:600;margin-top:6px}
+  
+  /* Transformer Health Gauge */
+  .dt-gauge{display:flex;gap:12px;align-items:center;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:8px}
+  .dt-val{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums}
+  .dt-bar{flex:1;background:#1e293b;border-radius:6px;height:12px;overflow:hidden}
+  .dt-bar-fill{height:100%;background:linear-gradient(90deg,#10b981,#f59e0b);width:60%;transition:width .4s}
+  
+  /* Modal Overlay */
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(4px);z-index:999;align-items:center;justify-content:center}
+  .modal{background:#0f172a;border:1px solid var(--line);border-radius:16px;width:90%;max-width:540px;max-height:88vh;overflow-y:auto;padding:24px;box-shadow:0 20px 40px rgba(0,0,0,0.6)}
+  .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+  .modal-header h2{font-size:18px}
+  .modal-close{background:transparent;border:none;color:var(--muted);font-size:22px;cursor:pointer}
+  .form-group{margin-bottom:14px}
+  .form-group label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:600}
+  .form-group input,.form-group select{width:100%;padding:9px 12px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;color:var(--text);font-size:13px}
+  .form-group input:focus{border-color:var(--green);outline:none}
+  
+  .num{font-variant-numeric:tabular-nums}
+  .green{color:var(--green)} .amber{color:var(--amber)} .red{color:var(--red)} .cyan{color:var(--cyan)} .violet{color:var(--violet)}
+  .footer{color:var(--muted);font-size:11px;margin-top:14px;line-height:1.6;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+</style>
+</head>
+<body>
+
+<!-- Top Hackathon Strip -->
+<div class="top-strip">
+  <div style="display:flex;align-items:center;gap:10px">
+    <span class="hackathon-badge">⚡ Yuva Yodha 2026 • Schneider Electric</span>
+    <span style="color:var(--muted)">Challenge 03: Grid Reliability & Renewable Intermittency</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px">
+    <span id="supabase-pill" class="badge-live live" style="cursor:pointer" onclick="openSupabaseModal()">
+      🟢 Supabase: Initializing…
+    </span>
+    <span id="user-display" style="cursor:pointer;color:var(--cyan);font-weight:600" onclick="openAuthModal()">
+      👤 Guest (Sign in)
+    </span>
+  </div>
+</div>
+
+<!-- Main Header -->
+<div class="header">
+  <div class="brand">
+    <span class="bolt">⚡</span>
+    <div>
+      <h1 style="font-size:21px">FlexiGrid <span style="color:var(--green)">•</span> Community Demand Response</h1>
+      <div class="sub" id="feederline">Loading distribution feeder context…</div>
+    </div>
+  </div>
+  <div class="hgroup">
+    <span class="badge-live live" id="databadge">LIVE ☀ OPEN-METEO</span>
+    <select id="city" onchange="setCity()">
+      <option>Pune</option><option>Dhule</option><option>Nagpur</option><option>Mumbai</option>
+    </select>
+    <select id="speed" onchange="setSpeed()">
+      <option value="1">1× Realtime</option>
+      <option value="15" selected>15×</option>
+      <option value="60">60× (judge demo)</option>
+      <option value="120">120× Fast</option>
+    </select>
+    <span class="clock" id="clock">--:--</span>
+    <button class="btn-accent" onclick="optimizeNow()">⟳ MILP Re-optimize</button>
+    <button onclick="useIawe()" title="Load measured days from the IIIT Delhi iAWE Indian dataset">📥 iAWE Real Trace</button>
+    <button class="btn-supabase" onclick="openSupabaseModal()">☁️ Supabase Vault</button>
+    <button onclick="resetSim()">Reset</button>
+  </div>
+</div>
+
+<!-- Persona & Scenario Bar -->
+<div class="role-bar">
+  <span style="font-size:11px;color:var(--muted);align-self:center;text-transform:uppercase;letter-spacing:.6px;margin-right:4px">View as:</span>
+  <button class="role-btn active" id="btn-role-discom" onclick="switchRole('discom')">🗼 DISCOM Dispatcher</button>
+  <button class="role-btn" id="btn-role-society" onclick="switchRole('society')">🏢 Society Admin</button>
+  <button class="role-btn" id="btn-role-prosumer" onclick="switchRole('prosumer')">🏡 Prosumer (H00 Patil)</button>
+  <div style="flex:1"></div>
+  <span style="font-size:11px;color:var(--muted);align-self:center;text-transform:uppercase;letter-spacing:.6px;margin-right:4px">Trigger Scenario:</span>
+  <button class="btn-storm" onclick="triggerScenario('storm')">🌩 Cloud Storm (-65%)</button>
+  <button onclick="triggerScenario('sunset_cliff')">🌅 Sunset Cliff</button>
+  <button onclick="triggerScenario('heatwave')">🔥 Heatwave (+30%)</button>
+  <button onclick="triggerScenario('islanding')">🛡 Microgrid Islanding</button>
+</div>
+
+<!-- Live Alert Bars -->
+<div class="stormbar" id="stormbar">
+  🌩 <b>INTERMITTENCY CRISIS:</b> Solar irradiance collapsed under cloud bank! Merit-order battery absorbing first shock → DR engine deferring flexible loads…
+</div>
+<div class="drbar" id="drbar">
+  🛡 <b>DR DISPATCH RUNNING:</b> Automated + SMS deferral active across participating homes via Fairness Rotation.
+</div>
+
+<!-- KPIs -->
+<div class="kpis">
+  <div class="kpi"><div class="v green num" id="k_peak">–</div><div class="l">Feeder Peak Cut</div><div class="d num" id="k_peakd"></div></div>
+  <div class="kpi"><div class="v num" id="k_saved">–</div><div class="l">₹ Community Value Today</div><div class="d num" id="k_savedd">bill · DR · storage</div></div>
+  <div class="kpi"><div class="v cyan num" id="k_co2">–</div><div class="l">CO₂ Avoided Today</div><div class="d">0.82 kg/kWh • CEA Factor</div></div>
+  <div class="kpi"><div class="v num" id="k_shift">–</div><div class="l">kWh Shifted To Solar</div><div class="d num" id="k_drdef"></div></div>
+  <div class="kpi"><div class="v amber num" id="k_dr">–</div><div class="l">DR Events Handled</div><div class="d">₹4/kWh Tata BDR Band</div></div>
+  <div class="kpi"><div class="v num" id="k_fair">–</div><div class="l">Fairness Equity Index</div><div class="d">Least-burdened asked first</div></div>
+  <div class="kpi"><div class="v green num" id="k_dtloss">–</div><div class="l">DT Loss Reduction</div><div class="d">Transformer copper $I^2R$</div></div>
+</div>
+
+<!-- Two Column Main Layout -->
+<div class="grid2">
+  <!-- Left Column: Graph & Community Connections -->
+  <div>
+    <div class="panel">
+      <h3>
+        <span>Feeder Load Profile (48 × 30-min Settlement Blocks)</span>
+        <span style="font-size:11px;color:var(--muted);text-transform:none" id="limitline"></span>
+      </h3>
+      <canvas id="mainchart" height="120"></canvas>
+      <div class="legend">
+        <span><span class="dot" style="background:#5a6b80"></span>Baseline (No FlexiGrid)</span>
+        <span><span class="dot" style="background:var(--green)"></span>Managed (With FlexiGrid)</span>
+        <span><span class="dot" style="background:var(--amber)"></span>Rooftop Solar Supply</span>
+        <span><span class="dot" style="background:var(--red)"></span>Feeder Physical Limit</span>
+      </div>
+    </div>
+
+    <!-- Community Homes Matrix -->
+    <div class="panel">
+      <h3>
+        <span>Neighbourhood Smart Connections (<span id="homecount">40</span>)</span>
+        <span style="font-size:11px;color:var(--muted);text-transform:none">
+          Border: <span class="green">Surplus</span> / <span class="cyan">Running Load</span> / <span class="amber">Import</span> / <span class="red">Missed</span>
+        </span>
+      </h3>
+      <div class="homes" id="homes"></div>
+    </div>
+  </div>
+
+  <!-- Right Column: Control Panels -->
+  <div>
+    <!-- Weather & Irradiance -->
+    <div class="panel">
+      <h3>Live Solar & Weather Forecast</h3>
+      <div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap">
+        <div><div class="big amber num" id="w_ghi" style="font-size:22px;font-weight:700">–</div><div style="font-size:11px;color:var(--muted)">W/m² GHI</div></div>
+        <div><div class="big num" id="w_temp" style="font-size:22px;font-weight:700">–</div><div style="font-size:11px;color:var(--muted)">°C Temperature</div></div>
+        <div><div class="big num" id="w_cloud" style="font-size:22px;font-weight:700">–</div><div style="font-size:11px;color:var(--muted)">% Cloud Cover</div></div>
+        <div><div class="big green num" id="w_solar" style="font-size:22px;font-weight:700">–</div><div style="font-size:11px;color:var(--muted)">kW Solar Now</div></div>
+      </div>
+    </div>
+
+    <!-- Community Battery -->
+    <div class="panel">
+      <h3>🔋 Community Battery (60 kWh / 20 kW Shared Storage)</h3>
+      <div class="binfo"><span>State of Charge</span><span class="num" id="b_soctext">–</span></div>
+      <div class="socwrap"><div class="socfill" id="b_fill" style="width:0%"></div></div>
+      <div class="bact" id="b_act">idle</div>
+      <div class="binfo" style="margin-top:6px">
+        <span>Charged: <b class="num" id="b_ch">0</b> kWh</span>
+        <span>Discharged: <b class="num green" id="b_dis">0</b> kWh</span>
+      </div>
+      <div style="font-size:10.5px;color:var(--muted);margin-top:6px">Merit Order: Solar-Gap Reserve (35%) → Peak Shave → Night Charge (₹6/kWh)</div>
+    </div>
+
+    <!-- Schneider EcoStruxure Transformer Health -->
+    <div class="panel">
+      <h3>🗼 Distribution Transformer Health (100 kVA)</h3>
+      <div class="dt-gauge">
+        <div>
+          <div class="dt-val" id="dt_load">–%</div>
+          <div style="font-size:10.5px;color:var(--muted)">Loading</div>
+        </div>
+        <div class="dt-bar"><div class="dt-bar-fill" id="dt_bar_fill"></div></div>
+        <div style="text-align:right">
+          <div class="dt-val green" id="dt_temp">–°C</div>
+          <div style="font-size:10.5px;color:var(--muted)">Winding Temp</div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:11.5px">
+        <span>Loss Reduction: <b class="green num" id="dt_loss">–%</b></span>
+        <span>Life Extension: <b class="cyan">+4.2 Years</b></span>
+      </div>
+    </div>
+
+    <!-- OpenADR 2.0b Utility Interface -->
+    <div class="panel">
+      <h3>
+        <span>OpenADR 2.0b SCADA Interface</span>
+        <span class="badge-live live" style="font-size:10px" id="openadr_status">OADR 2.0b Profile B</span>
+      </h3>
+      <div style="font-size:11.5px;color:var(--muted);margin-bottom:8px">
+        VEN ID: <span class="cyan num" id="ven_id">VEN-MSEDCL-PUNE-01</span> • VTN State: <span class="green">Connected</span>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn-accent" style="flex:1" onclick="dispatchOpenADR()">Dispatch 25 kW OpenADR Event</button>
+        <button onclick="exportMERCReport()">📄 Audit Report</button>
+      </div>
+    </div>
+
+    <!-- Leaderboard & Micro-incentives -->
+    <div class="panel">
+      <h3>
+        <span>Bharat Micro-Rewards Leaderboard 🏆</span>
+        <span style="font-size:11px;color:var(--green)">UPI Enabled</span>
+      </h3>
+      <table id="lb">
+        <tr><th>Home</th><th>Mode</th><th>DR Blocks</th><th>Wallet ₹</th><th>Action</th></tr>
+      </table>
+    </div>
+
+    <!-- Live Event Feed -->
+    <div class="panel">
+      <h3>Live Operations Event Feed</h3>
+      <div class="feed" id="feed"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Footer with Data Provenance -->
+<div class="footer">
+  <b>Yuva Yodha Energy Tech Hackathon 2026 • FlexiGrid Bharat Demand Response Architecture</b><br>
+  ☀️ <b>100% Live Solar:</b> Real hourly GHI & cloud cover streamed live from Open-Meteo API per Indian city.<br>
+  💳 <b>Real Regulatory Tariffs:</b> MERC MYT Order FY 2026-27 (MSEDCL LT I-B) & FY 2025-26 (Adani Electricity Mumbai).<br>
+  🏠 <b>Metered Calibration:</b> Calibrated against IIIT-Delhi iAWE dataset (Batra et al., ACM BuildSys 2013). Supports CSV smart-meter drop-in.<br>
+  ☁️ <b>Cloud Persistence:</b> Powered by <b>Supabase</b> PostgreSQL authentication, live telemetry store, and automated NPCI UPI mock payout rails.
+</div>
+
+<!-- ================================================================= -->
+<!-- MODALS -->
+<!-- ================================================================= -->
+
+<!-- Supabase Modal -->
+<div class="modal-overlay" id="supabase-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>☁️ Supabase Cloud Vault & Auth</h2>
+      <button class="modal-close" onclick="closeModal('supabase-modal')">&times;</button>
+    </div>
+    <div style="background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:16px;font-size:12.5px">
+      <div><b>Status:</b> <span id="sb-status-text" class="green">Checking…</span></div>
+      <div style="margin-top:4px;color:var(--muted)">Mode: <span id="sb-mode-text">Local Resilient Vault (SQLite)</span></div>
+      <div style="margin-top:4px;color:var(--muted)" id="sb-stats-text">Records: 0 users • 0 telemetry • 0 DR events</div>
+    </div>
+
+    <div class="form-group">
+      <label>Supabase Project URL</label>
+      <input type="text" id="sb-url-input" placeholder="https://your-project-id.supabase.co">
+    </div>
+    <div class="form-group">
+      <label>Supabase API Key (anon / public or service_role)</label>
+      <input type="password" id="sb-key-input" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...">
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn-accent" style="flex:1" onclick="saveSupabaseConfig()">Save & Connect Cloud</button>
+      <button onclick="window.open('/static/../supabase/schema.sql', '_blank')">View SQL Schema</button>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-top:12px">
+      💡 <i>Resilient Zero-Setup Mode:</i> FlexiGrid already operates fully with local embedded storage. Adding Supabase credentials automatically mirrors all data to your live Supabase cloud project!
+    </div>
+  </div>
+</div>
+
+<!-- Auth Modal (Signup / Login) -->
+<div class="modal-overlay" id="auth-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="auth-title">👤 Citizen & Grid Dispatcher Auth</h2>
+      <button class="modal-close" onclick="closeModal('auth-modal')">&times;</button>
+    </div>
+    
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <button class="role-btn active" id="tab-login" onclick="switchAuthTab('login')">Sign In</button>
+      <button class="role-btn" id="tab-signup" onclick="switchAuthTab('signup')">Sign Up</button>
+    </div>
+
+    <div id="auth-login-fields">
+      <div class="form-group">
+        <label>Email Address</label>
+        <input type="email" id="login-email" value="operator@msedcl.gov.in">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="login-password" value="msedcl2026">
+      </div>
+      <button class="btn-accent" style="width:100%;margin-top:6px" onclick="doLogin()">Sign In to FlexiGrid</button>
+      
+      <div style="margin-top:12px;font-size:11px;color:var(--muted)">
+        <b>Quick Demo Accounts:</b><br>
+        • DISCOM Chief: <code>operator@msedcl.gov.in</code> / <code>msedcl2026</code><br>
+        • Society Admin: <code>secretary@banerchs.in</code> / <code>society2026</code><br>
+        • Home H00 (Patil): <code>patil@flexigrid.in</code> / <code>patil123</code>
+      </div>
+    </div>
+
+    <div id="auth-signup-fields" style="display:none">
+      <div class="form-group">
+        <label>Full Name</label>
+        <input type="text" id="signup-name" placeholder="e.g. Ramesh Patil">
+      </div>
+      <div class="form-group">
+        <label>Email Address</label>
+        <input type="email" id="signup-email" placeholder="name@domain.com">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="signup-password" placeholder="At least 6 characters">
+      </div>
+      <div class="form-group">
+        <label>Role</label>
+        <select id="signup-role">
+          <option value="prosumer">Prosumer (Household Consumer)</option>
+          <option value="society_admin">Society / Housing Admin</option>
+          <option value="discom_operator">MSEDCL Grid Dispatcher</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>UPI VPA (for micro-incentive payouts)</label>
+        <input type="text" id="signup-upi" placeholder="9820011223@upi">
+      </div>
+      <button class="btn-accent" style="width:100%;margin-top:6px" onclick="doSignup()">Create Account (Supabase)</button>
+    </div>
+  </div>
+</div>
+
+<!-- UPI Payout Modal -->
+<div class="modal-overlay" id="payout-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>💸 Bharat UPI Micro-Incentive Payout</h2>
+      <button class="modal-close" onclick="closeModal('payout-modal')">&times;</button>
+    </div>
+    <div style="background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:14px;font-size:12.5px">
+      <div><b>Recipient:</b> <span id="payout-home-name">Ramesh Patil</span> (<span id="payout-home-id">H00</span>)</div>
+      <div style="margin-top:4px"><b>Available Rewards:</b> <span class="green font-weight-bold" id="payout-avail-bal">₹0</span></div>
+      <div style="margin-top:4px;color:var(--muted)">Verified UPI VPA: <span class="cyan" id="payout-vpa">9820011223@upi</span></div>
+    </div>
+    <div class="form-group">
+      <label>Disbursement Amount (₹)</label>
+      <input type="number" id="payout-amount" min="1" step="0.5">
+    </div>
+    <button class="btn-accent" style="width:100%;margin-top:6px" onclick="submitPayout()">Disburse to Bank via UPI</button>
+    <div id="payout-result" style="margin-top:12px;font-size:12px;display:none"></div>
+  </div>
+</div>
+
+<script>
+let chart;
+let currentRole = 'discom';
+let authUser = null;
+let authToken = localStorage.getItem('flexigrid_token') || '';
+
+const mkChart = () => {
+  const c = document.getElementById('mainchart');
+  chart = new Chart(c, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        {label:'Baseline (No DR)', borderColor:'#5a6b80', borderDash:[6,4], pointRadius:0, borderWidth:1.8, data:[], tension:.25},
+        {label:'Managed (FlexiGrid)', borderColor:'#10b981', pointRadius:0, borderWidth:2.4, data:[], tension:.25, fill:{target:2, above:'rgba(16,185,129,0.15)'}},
+        {label:'Solar Irradiance', borderColor:'#f59e0b', pointRadius:0, borderWidth:1.6, data:[], tension:.25},
+        {label:'Feeder Safe Limit', borderColor:'#ef4444', borderDash:[2,3], pointRadius:0, borderWidth:1.4, data:[], tension:0},
+      ]
+    },
+    options: {
+      responsive: true,
+      animation: false,
+      interaction: {mode:'index', intersect:false},
+      plugins: {
+        legend: {display:false},
+        tooltip: {callbacks: {label: it => ` ${it.dataset.label}: ${it.parsed.y} kW`}}
+      },
+      scales: {
+        x: {ticks: {color:'#94a3b8', maxTicksLimit:12}, grid: {color:'#172338'}},
+        y: {ticks: {color:'#94a3b8'}, grid: {color:'#172338'}, title: {display:true, text:'Feeder Load (kW)', color:'#94a3b8'}}
+      }
+    }
+  });
+};
+
+function homeClass(h){
+  if(h.missed) return 'state-miss';
+  if(h.running && h.running.length) return 'state-run';
+  if(h.net < 0) return 'state-sur';
+  return 'state-imp';
+}
+
+async function poll(){
+  try {
+    const r = await fetch('/api/state');
+    const s = await r.json();
+
+    document.getElementById('feederline').textContent =
+      `${s.city.feeder} • ${s.city.name}, Maharashtra • ${s.city.discom} • 40 Connections (100 kVA DT)`;
+    document.getElementById('clock').textContent = `Day ${s.time.day} • ${s.time.clock} IST`;
+    document.getElementById('city').value = s.city.name;
+
+    const live = s.weather.src.includes('live') || s.weather.src.includes('Open-Meteo');
+    const badge = document.getElementById('databadge');
+    badge.className = 'badge-live ' + (live ? 'live' : 'offline');
+    badge.textContent = live ? 'LIVE ☀ OPEN-METEO' : 'OFFLINE MODEL';
+
+    document.getElementById('stormbar').style.display = s.storm.active ? 'block' : 'none';
+    document.getElementById('drbar').style.display = s.dr_active ? 'block' : 'none';
+
+    // KPIs
+    document.getElementById('k_peak').textContent = s.feeder.peak_cut_pct + '%';
+    document.getElementById('k_peakd').textContent = `${s.feeder.base_peak} → ${s.feeder.peak_today} kW`;
+    document.getElementById('k_saved').textContent = '₹' + Math.round(s.kpis.saved_rupees).toLocaleString('en-IN');
+    document.getElementById('k_savedd').textContent = `Bill ₹${Math.round(s.kpis.retail_delta)} • DR ₹${Math.round(s.kpis.dr_earnings)} • Batt ₹${Math.round(s.kpis.battery_value)}`;
+    document.getElementById('k_co2').textContent = Math.round(s.kpis.co2_kg) + ' kg';
+    document.getElementById('k_shift').textContent = Math.round(s.kpis.shifted_kwh) + ' kWh';
+    document.getElementById('k_drdef').textContent = `Deferred: ${Math.round(s.kpis.dr_deferred_kwh)} kWh`;
+    document.getElementById('k_dr').textContent = s.kpis.dr_events;
+    document.getElementById('k_fair').textContent = s.fairness_index + '%';
+    document.getElementById('k_dtloss').textContent = s.transformer.loss_saved_pct + '%';
+
+    // Weather
+    document.getElementById('w_ghi').textContent = s.weather.ghi;
+    document.getElementById('w_temp').textContent = Math.round(s.weather.temp);
+    document.getElementById('w_cloud').textContent = s.weather.cloud;
+    const solarNow = s.chart.solar[s.time.block] || 0;
+    document.getElementById('w_solar').textContent = solarNow;
+
+    // Battery
+    const bt = s.battery;
+    document.getElementById('b_fill').style.width = bt.pct + '%';
+    document.getElementById('b_soctext').textContent = `${bt.pct}% (${bt.soc}/${bt.cap} kWh)`;
+    const flow = bt.kw_dis > 0.05 ? `▲ Discharging ${bt.kw_dis} kW` : bt.kw_ch > 0.05 ? `▼ Charging ${bt.kw_ch} kW` : 'Standby';
+    document.getElementById('b_act').textContent = `${flow} — ${bt.label}`;
+    document.getElementById('b_act').style.color = bt.kw_dis > 0.05 ? 'var(--amber)' : bt.kw_ch > 0.05 ? 'var(--green)' : 'var(--muted)';
+    document.getElementById('b_ch').textContent = bt.charged_today;
+    document.getElementById('b_dis').textContent = bt.discharged_today;
+
+    // Transformer Health
+    const dt = s.transformer;
+    document.getElementById('dt_load').textContent = dt.load_pct + '%';
+    document.getElementById('dt_bar_fill').style.width = Math.min(100, dt.load_pct) + '%';
+    document.getElementById('dt_bar_fill').style.background = dt.load_pct > 100 ? '#ef4444' : (dt.load_pct > 80 ? '#f59e0b' : '#10b981');
+    document.getElementById('dt_temp').textContent = dt.winding_temp_c + '°C';
+    document.getElementById('dt_loss').textContent = dt.loss_saved_pct + '%';
+
+    // OpenADR
+    if (s.openadr){
+      document.getElementById('ven_id').textContent = s.openadr.ven_id;
+    }
+
+    // Chart
+    chart.data.labels = s.chart.labels;
+    chart.data.datasets[0].data = s.chart.baseline;
+    chart.data.datasets[1].data = s.chart.actual;
+    chart.data.datasets[2].data = s.chart.solar;
+    chart.data.datasets[3].data = s.chart.labels.map(_ => s.feeder.limit);
+    chart.update('none');
+    document.getElementById('limitline').textContent = `Now: Block ${s.chart.labels[s.time.block]} • Feeder Limit ${s.feeder.limit} kW`;
+
+    // Homes
+    document.getElementById('homecount').textContent = s.homes.length;
+    document.getElementById('homes').innerHTML = s.homes.map(h => `
+      <div class="home ${homeClass(h)}">
+        <div class="nm">
+          <span>${h.name}</span>
+          <span class="mode ${h.mode==='AUTO'?'m-auto':'m-sms'}">${h.mode}</span>
+        </div>
+        <div class="tag">${h.kind} • ☀ ${h.kwp} kWp • ₹${h.wallet}</div>
+        <div class="num" style="margin-top:3px;font-size:11.5px">Net: ${h.net > 0 ? '+' : ''}${h.net} kW</div>
+        <div>
+          ${(h.running || []).slice(0,3).map(x => `<span class="chip">${x}</span>`).join('')}
+          ${h.missed ? '<span class="chip" style="border-color:#ef4444;color:#fca5a5">missed</span>' : ''}
+        </div>
+      </div>
+    `).join('');
+
+    // Leaderboard with UPI Claim buttons
+    document.getElementById('lb').innerHTML =
+      '<tr><th>Home</th><th>Mode</th><th>DR Blocks</th><th>Wallet ₹</th><th>Action</th></tr>' +
+      s.leaderboard.map(h => `
+        <tr>
+          <td><b>${h.name}</b></td>
+          <td><span class="mode ${h.mode==='AUTO'?'m-auto':'m-sms'}">${h.mode}</span></td>
+          <td class="num">${h.participation}</td>
+          <td class="num green"><b>₹${h.wallet}</b></td>
+          <td>
+            <button style="padding:2px 7px;font-size:10.5px;border-color:var(--green);color:#a7f3d0" 
+              onclick="openPayoutModal('${h.id}', '${h.name}', ${h.wallet})">
+              ⚡ UPI Cashout
+            </button>
+          </td>
+        </tr>
+      `).join('');
+
+    // Feed
+    document.getElementById('feed').innerHTML = s.events.map(e => `
+      <div class="ev ${e.kind}">
+        <span class="t">${e.t}</span>
+        <span>${e.text}</span>
+      </div>
+    `).join('');
+
+  } catch(e) {
+    console.error("Poll error:", e);
+  }
+}
+
+// Scenarios & Actions
+async function triggerScenario(name){
+  await fetch('/api/sim/scenario', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({scenario: name})
+  });
+  poll();
+}
+
+async function useIawe(){ await fetch('/api/sim/use_iawe', {method:'POST'}); poll(); }
+async function resetSim(){ await fetch('/api/sim/reset', {method:'POST'}); poll(); }
+async function optimizeNow(){ await fetch('/api/sim/optimize', {method:'POST'}); poll(); }
+async function setCity(){ await fetch('/api/city?name=' + encodeURIComponent(document.getElementById('city').value), {method:'POST'}); poll(); }
+async function setSpeed(){ await fetch('/api/sim/speed?x=' + document.getElementById('speed').value, {method:'POST'}); }
+
+async function dispatchOpenADR(){
+  const res = await (await fetch('/api/openadr/dispatch', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({target_kw: 25.0, duration_min: 60})
+  })).json();
+  alert(`OpenADR 2.0b Dispatch Signal Broadcast!\nEvent ID: ${res.event_id}\nTarget: ${res.target_kw} kW\nStatus: ${res.status}`);
+  poll();
+}
+
+async function exportMERCReport(){
+  const res = await (await fetch('/api/export/report')).json();
+  const text = JSON.stringify(res, null, 2);
+  const blob = new Blob([text], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `FlexiGrid_MERC_Audit_${Date.now()}.json`;
+  a.click();
+}
+
+// Role switching
+function switchRole(role){
+  currentRole = role;
+  document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`btn-role-${role}`).classList.add('active');
+  if (role === 'prosumer'){
+    document.getElementById('user-display').textContent = '👤 Ramesh Patil (H00)';
+  } else if (role === 'society'){
+    document.getElementById('user-display').textContent = '🏢 Society Secretary (Baner)';
+  } else {
+    document.getElementById('user-display').textContent = '🗼 MSEDCL Chief Operator';
+  }
+}
+
+// Modals
+function openModal(id){ document.getElementById(id).style.display = 'flex'; }
+function closeModal(id){ document.getElementById(id).style.display = 'none'; }
+
+// Supabase Status & Config
+async function checkSupabaseStatus(){
+  try {
+    const s = await (await fetch('/api/supabase/status')).json();
+    const pill = document.getElementById('supabase-pill');
+    const statusText = document.getElementById('sb-status-text');
+    const modeText = document.getElementById('sb-mode-text');
+    const statsText = document.getElementById('sb-stats-text');
+
+    if (s.cloud_connected){
+      pill.className = 'badge-live live';
+      pill.textContent = '🟢 Supabase Cloud';
+      statusText.textContent = 'Connected (Live PostgreSQL Cloud)';
+      statusText.className = 'green';
+    } else {
+      pill.className = 'badge-live offline';
+      pill.textContent = '🟡 Supabase Local';
+      statusText.textContent = 'Local Resilient Mode (SQLite)';
+      statusText.className = 'amber';
+    }
+    modeText.textContent = s.mode;
+    statsText.textContent = `Records: ${s.stats.users} Users • ${s.stats.telemetry_points} Telemetry Rows • ${s.stats.dr_events} DR Events • ${s.stats.transactions} Payouts`;
+  } catch(e) {
+    console.error(e);
+  }
+}
+
+function openSupabaseModal(){
+  checkSupabaseStatus();
+  openModal('supabase-modal');
+}
+
+async function saveSupabaseConfig(){
+  const url = document.getElementById('sb-url-input').value.trim();
+  const key = document.getElementById('sb-key-input').value.trim();
+  if(!url || !key){
+    alert('Please enter both Supabase URL and Key');
+    return;
+  }
+  const res = await (await fetch('/api/supabase/config', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({url, key})
+  })).json();
+  if(res.ok){
+    alert('Successfully connected to Supabase Cloud PostgreSQL!');
+    closeModal('supabase-modal');
+    checkSupabaseStatus();
+  } else {
+    alert('Connection failed: ' + (res.error || 'Check URL/Key'));
+  }
+}
+
+// Auth Logic
+function openAuthModal(){ openModal('auth-modal'); }
+function switchAuthTab(tab){
+  if(tab === 'login'){
+    document.getElementById('tab-login').classList.add('active');
+    document.getElementById('tab-signup').classList.remove('active');
+    document.getElementById('auth-login-fields').style.display = 'block';
+    document.getElementById('auth-signup-fields').style.display = 'none';
+  } else {
+    document.getElementById('tab-signup').classList.add('active');
+    document.getElementById('tab-login').classList.remove('active');
+    document.getElementById('auth-login-fields').style.display = 'none';
+    document.getElementById('auth-signup-fields').style.display = 'block';
+  }
+}
+
+async function doLogin(){
+  const email = document.getElementById('login-email').value;
+  const password = document.getElementById('login-password').value;
+  const r = await fetch('/api/auth/login', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({email, password})
+  });
+  const data = await r.json();
+  if (data.ok){
+    authUser = data.user;
+    authToken = data.token;
+    localStorage.setItem('flexigrid_token', data.token);
+    document.getElementById('user-display').textContent = `👤 ${data.user.full_name} (${data.user.role})`;
+    closeModal('auth-modal');
+    alert(`Welcome back, ${data.user.full_name}! Authenticated via Supabase.`);
+  } else {
+    alert(data.error || 'Login failed');
+  }
+}
+
+async function doSignup(){
+  const full_name = document.getElementById('signup-name').value;
+  const email = document.getElementById('signup-email').value;
+  const password = document.getElementById('signup-password').value;
+  const role = document.getElementById('signup-role').value;
+  const upi_vpa = document.getElementById('signup-upi').value;
+
+  const r = await fetch('/api/auth/signup', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({full_name, email, password, role, upi_vpa})
+  });
+  const data = await r.json();
+  if(data.ok){
+    authUser = data.user;
+    authToken = data.token;
+    localStorage.setItem('flexigrid_token', data.token);
+    document.getElementById('user-display').textContent = `👤 ${data.user.full_name} (${data.user.role})`;
+    closeModal('auth-modal');
+    alert(`Account created successfully! Welcome to FlexiGrid.`);
+  } else {
+    alert(data.error || 'Signup failed');
+  }
+}
+
+// UPI Payout Logic
+let currentPayoutHome = null;
+function openPayoutModal(homeId, homeName, walletBal){
+  currentPayoutHome = {id: homeId, name: homeName, bal: walletBal};
+  document.getElementById('payout-home-name').textContent = homeName;
+  document.getElementById('payout-home-id').textContent = homeId;
+  document.getElementById('payout-avail-bal').textContent = `₹${walletBal.toFixed(1)}`;
+  document.getElementById('payout-vpa').textContent = `${homeName.toLowerCase().replace(/[^a-z0-9]/g,'')}@upi`;
+  document.getElementById('payout-amount').value = Math.min(walletBal, 100);
+  document.getElementById('payout-result').style.display = 'none';
+  openModal('payout-modal');
+}
+
+async function submitPayout(){
+  if (!currentPayoutHome) return;
+  const amt = parseFloat(document.getElementById('payout-amount').value);
+  if (amt <= 0 || amt > currentPayoutHome.bal){
+    alert('Invalid amount. Must be greater than 0 and within your balance.');
+    return;
+  }
+  const vpa = document.getElementById('payout-vpa').textContent;
+  const res = await (await fetch('/api/wallet/payout', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({home_id: currentPayoutHome.id, amount_inr: amt, upi_vpa: vpa})
+  })).json();
+
+  const resDiv = document.getElementById('payout-result');
+  resDiv.style.display = 'block';
+  if(res.ok){
+    resDiv.innerHTML = `<span class="green">✔ <b>Payout Settled:</b> ₹${res.amount_inr} sent to ${res.vpa}. Ref: <code>${res.upi_ref}</code></span>`;
+    poll();
+    setTimeout(() => closeModal('payout-modal'), 2200);
+  } else {
+    resDiv.innerHTML = `<span class="red">✖ <b>Error:</b> ${res.error}</span>`;
+  }
+}
+
+// Initial boot
+mkChart();
+poll();
+checkSupabaseStatus();
+setInterval(poll, 2000);
+</script>
+</body>
+</html>
